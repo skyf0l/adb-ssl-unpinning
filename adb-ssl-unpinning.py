@@ -18,7 +18,13 @@ JAR_SIGNER = 'uber-apk-signer-1.2.1.jar'
 
 
 def pull_package(device: AdbDevice, package_name: str, output_path: Path):
-    for apk in device.shell('pm path ' + package_name).splitlines():
+    apks = device.shell('pm path ' + package_name).splitlines()
+    if len(apks) == 0:
+        print('Package not found')
+        exit(1)
+
+    os.mkdir(output_path)
+    for apk in apks:
         apk_path = apk.strip().split(':')[1]
         print(f'Pulling {apk_path}...')
         device.sync.pull(apk_path, output_path / apk_path.split('/')[-1])
@@ -59,7 +65,6 @@ def patch_package(device: AdbDevice, package_name: str):
     # Pull original APK
     original_output = Path(package_name)
     if not os.path.exists(original_output):
-        os.mkdir(original_output)
         pull_package(device, package_name, original_output)
 
     # Remove old patched output directory and create new one
@@ -120,4 +125,8 @@ if __name__ == '__main__':
     client = AdbClient(host=ADB_HOST, port=ADB_PORT)
     device = client.device(argv[1])
 
-    patch_package(device, argv[2])
+    package_name = argv[2]
+    if package_name.startswith('package:'):
+        package_name = package_name[len('package:'):]
+
+    patch_package(device, package_name)
